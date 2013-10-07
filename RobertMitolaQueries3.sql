@@ -194,16 +194,17 @@ SELECT c.name, o.pid, o.dollars
 FROM orders o
 INNER JOIN customers c
 ON c.cid = o.cid
-ORDER BY o.dollars ASC;
+ORDER BY o.dollars DESC;
 
 -----14
 --All customer names alphabetically listed along with their total ordered.
 DROP VIEW IF EXISTS orderTotals;
 CREATE VIEW orderTotals AS (
-	SELECT c.cid, c.name, sum(COALESCE(o.dollars,0))
-	FROM customers c, orders o
-	WHERE c.cid = o.cid
-	GROUP BY c.cid
+	SELECT c.cid, c.name, SUM(COALESCE(o.dollars,0)) AS sum
+	FROM customers c
+	FULL OUTER JOIN orders o
+	ON c.cid = o.cid
+	GROUP BY c.name, c.cid
 	);
 SELECT name, sum
 FROM orderTotals
@@ -224,119 +225,6 @@ AND a.city = 'New York';
 --This is an accuracy checking query which compares the dollars column from orders
 --with what it mathematically should be. Also included is a column to check the difference
 --between the two values should they not match up.
-DROP VIEW IF EXISTS accuracyChecker;
-CREATE VIEW accuracyChecker AS (
-	SELECT o.ordno, (p.priceUSD * o.qty ) - ((p.priceUSD * o.qty ) * (c.discount / 100)) AS accuracy
-	FROM orders o, products p, customers c
-	WHERE o.cid = c.cid
-	AND o.pid = p.pid
-	group by o.ordno, accuracy
-	ORDER BY o.ordno ASC
-	);
-SELECT o.ordno, o.dollars, a.accuracy, ABS(o.dollars - a.accuracy) AS difference
-FROM accuracyChecker a, orders o
-WHERE o.ordno = a.ordno;
-
------17
-UPDATE orders
-SET dollars = 455.00
-WHERE dollars = 450.00;
---Run this and then #16 again to test!
-
-SELECT DISTINCT c.name, c.city
-FROM customers c, products p, productCount pc
-WHERE pc.city = c.city
-AND pc.sum IN (
-	SELECT MIN(pc.sum)
-	FROM productCount pc
-	);
-
------10
---For this one I assumed you wanted to find the name and city of customers
---who live in a city where the most number of types of products are made,
---since it is impossible to have Newark as an answer, or have multiple answers
---if measuring the added quantities like in 9.
-
-DROP VIEW IF EXISTS cityOccurences;
-CREATE VIEW cityOccurences AS (
-	SELECT p.city, count(p.city) AS occurances
-	FROM products p
-	GROUP BY p.pid
-	);
-DROP VIEW IF EXISTS cityCount;
-CREATE VIEW cityCount AS (
-	SELECT city, sum(occurances)
-	FROM cityOccurences co
-	GROUP BY city
-	);
-SELECT c.name, c.city
-FROM customers c, cityCount cc
-WHERE c.city = cc.city
-AND cc.sum IN (
-	SELECT MAX(cc.sum)
-	FROM cityCount cc
-	)
-LIMIT 1;
-
------11
-
-DROP VIEW IF EXISTS cityOccurences;
-CREATE VIEW cityOccurences AS (
-	SELECT p.city, count(p.city) AS occurances
-	FROM products p
-	GROUP BY p.pid
-	);
-DROP VIEW IF EXISTS cityCount;
-CREATE VIEW cityCount AS (
-	SELECT city, sum(occurances)
-	FROM cityOccurences co
-	GROUP BY city
-	);
-SELECT c.name, c.city
-FROM customers c, cityCount cc
-WHERE c.city = cc.city
-AND cc.sum IN (
-	SELECT MAX(cc.sum)
-	FROM cityCount cc
-	);
-
------12
-SELECT name , priceUSD
-FROM products
-WHERE priceUSD > (
-	select avg(priceUSD) 
-	from products
-	);
-
------13
-SELECT c.name, o.pid, o.dollars
-FROM orders o
-INNER JOIN customers c
-ON c.cid = o.cid
-ORDER BY o.dollars ASC;
-
------14
-DROP VIEW IF EXISTS orderTotals;
-CREATE VIEW orderTotals AS (
-	SELECT c.cid, c.name, sum(COALESCE(o.dollars,0))
-	FROM customers c, orders o
-	WHERE c.cid = o.cid
-	GROUP BY c.cid
-	);
-SELECT name, sum
-FROM orderTotals
-ORDER BY name;
-
-
------15
-SELECT c.name, p.name, a.name
-FROM customers c, products p, agents a, orders o
-WHERE c.cid = o.cid
-AND a.aid = o.aid
-AND p.pid = o.pid
-AND a.city = 'New York';
-
------16
 DROP VIEW IF EXISTS accuracyChecker;
 CREATE VIEW accuracyChecker AS (
 	SELECT o.ordno, (p.priceUSD * o.qty ) - ((p.priceUSD * o.qty ) * (c.discount / 100)) AS accuracy
